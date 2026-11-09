@@ -1,14 +1,14 @@
 """
 Tiny sample web app for Week 1 threat modeling.
-You will NOT exploit this in Week 1 — you will draw a data-flow diagram
-and apply STRIDE to its components (web client, app, SQLite DB, /upload).
 """
 from flask import Flask, request, jsonify, send_from_directory
-import sqlite3, os
+from werkzeug.utils import secure_filename
+import sqlite3, os, uuid
 
 app = Flask(__name__)
 DB = "notes.db"
 UPLOAD_DIR = "uploads"
+ALLOWED_EXT = {".txt", ".png", ".jpg", ".pdf"}
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 def init_db():
@@ -31,12 +31,17 @@ def notes():
 @app.route("/upload", methods=["POST"])
 def upload():
     f = request.files["file"]
-    f.save(os.path.join(UPLOAD_DIR, f.filename))
-    return {"saved": f.filename}
+    name = secure_filename(f.filename or "")
+    ext = os.path.splitext(name)[1].lower()
+    if not name or ext not in ALLOWED_EXT:
+        return {"error": "file type not allowed"}, 400
+    stored = uuid.uuid4().hex + ext
+    f.save(os.path.join(UPLOAD_DIR, stored))
+    return {"saved": stored}
 
-@app.route("/files/<name>")
-def files(name):
-    return send_from_directory(UPLOAD_DIR, name)
+@app.route("/files/<n>")
+def files(n):
+    return send_from_directory(UPLOAD_DIR, n)
 
 if __name__ == "__main__":
     init_db()
